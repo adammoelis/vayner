@@ -4,13 +4,14 @@ require 'json'
 
 class Assignment
 
-  attr_accessor :campaign_array, :dictionary
+  attr_accessor :campaign_array, :dictionary, :type_dictionary
 
   ACTIONS_TO_COUNT = ["x", "y"]
 
   def initialize
     @campaign_array = []
     @dictionary = {initiatives: [], audiences: [], assets: []}
+    @type_dictionary = {}
   end
 
   def read_file(file_name)
@@ -28,27 +29,42 @@ class Assignment
 
   def read_file_random_order(file_name)
     CSV.foreach(file_name) do |campaign_row|
-      binding.pry
-      @campaign_array << convert_to_right_order(campaign_row)
+      campaign = convert_to_right_order(campaign_row)
+      @type_dictionary[campaign] = campaign_row[1]
     end
-    @campaign_array = @campaign_array.compact
   end
 
   def convert_to_right_order(campaign_row)
     campaign_details = campaign_row[0].split("_")
+    array = campaign_details.each_with_object([]) do |type_of_campaign, array|
+      if dictionary[:initiatives].include?(type_of_campaign)
+        array[0] = type_of_campaign
+      elsif dictionary[:audiences].include?(type_of_campaign)
+        array[1] = type_of_campaign
+      elsif dictionary[:assets].include?(type_of_campaign)
+        array[2] = type_of_campaign
+      end
+    end
+    array.join("_")
+  end
 
-
+  def add_type_to_campaign_array
+    campaign_array.each do |campaign|
+      campaign[:type] = type_dictionary[campaign[:campaign]] if type_dictionary[campaign[:campaign]]
+    end
   end
 
   def run
     read_file('source1.csv')
+    read_file_random_order('source2.csv')
+    add_type_to_campaign_array
     unique_feb_campaigns = filter_duplicate_campaigns(campaigns_run_in(2))
     puts "The number of unique campaigns in February is #{unique_feb_campaigns.size}"
     conversions_for_plants = conversions_for('plants')
     puts "The number of conversions for plants is #{conversions_for_plants}"
     least_expensive = least_expensive_in_hash(audience_asset_combinations)
     puts "The lease expensive audience_asset combination is #{least_expensive[0][0]}"
-    binding.pry
+    puts "The total cost per video view is $#{cost_per_video_view}"
   end
 
   def convert_to_hash(campaign_row)
@@ -127,6 +143,23 @@ class Assignment
 
   def least_expensive_in_hash(audience_asset_combo_hash)
     audience_asset_combo_hash.sort_by{|k,v| v[:spend]/v[:conversions]}
+  end
+
+  def cost_per_video_view
+    total_cost = 0
+    total_view_count = 0
+    campaign_array.each do |campaign|
+      if campaign[:type] == 'video'
+        total_cost += campaign[:spend].to_i
+        campaign[:actions].each do |action|
+          if action['action'] == 'views'
+            views = action.select {|k, v| ACTIONS_TO_COUNT.include?(k)}.values.first
+            total_view_count += views.to_i
+          end
+        end
+      end
+    end
+    sprintf('%.2f', total_cost/total_view_count.to_f)
   end
 
 end
