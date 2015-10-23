@@ -4,19 +4,40 @@ require 'json'
 
 class Assignment
 
-  attr_accessor :campaign_array
+  attr_accessor :campaign_array, :dictionary
 
   ACTIONS_TO_COUNT = ["x", "y"]
 
   def initialize
     @campaign_array = []
+    @dictionary = {initiatives: [], audiences: [], assets: []}
   end
 
   def read_file(file_name)
-    CSV.foreach("source1.csv") do |campaign_row|
+    CSV.foreach(file_name) do |campaign_row|
       @campaign_array << convert_to_hash(campaign_row)
     end
     @campaign_array = @campaign_array.compact
+  end
+
+  def populate_dictionary(campaign_details)
+      @dictionary[:initiatives] << campaign_details[0] unless @dictionary[:initiatives].include?(campaign_details[0])
+      @dictionary[:audiences] << campaign_details[1] unless @dictionary[:audiences].include?(campaign_details[1])
+      @dictionary[:assets] << campaign_details[2] unless @dictionary[:assets].include?(campaign_details[2])
+  end
+
+  def read_file_random_order(file_name)
+    CSV.foreach(file_name) do |campaign_row|
+      binding.pry
+      @campaign_array << convert_to_right_order(campaign_row)
+    end
+    @campaign_array = @campaign_array.compact
+  end
+
+  def convert_to_right_order(campaign_row)
+    campaign_details = campaign_row[0].split("_")
+
+
   end
 
   def run
@@ -27,13 +48,12 @@ class Assignment
     puts "The number of conversions for plants is #{conversions_for_plants}"
     least_expensive = least_expensive_in_hash(audience_asset_combinations)
     puts "The lease expensive audience_asset combination is #{least_expensive[0][0]}"
-
-
+    binding.pry
   end
 
   def convert_to_hash(campaign_row)
-    # Read Line 1 and dynamically name the symbols in the hash. Give campaign_row descriptive names
     campaign_details = campaign_row[0].split("_")
+    populate_dictionary(campaign_details)
     if valid_json?(campaign_row[4])
       {campaign: campaign_row[0],
         initative: campaign_details[0],
@@ -45,6 +65,7 @@ class Assignment
         impressions: campaign_row[3],
         actions: JSON.parse(campaign_row[4])
       }
+
     end
   end
 
@@ -108,10 +129,8 @@ class Assignment
     audience_asset_combo_hash.sort_by{|k,v| v[:spend]/v[:conversions]}
   end
 
-
-
-
 end
+
 
 a = Assignment.new
 a.run
